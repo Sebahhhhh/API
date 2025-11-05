@@ -1,0 +1,92 @@
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: inherit;
+}
+
+.container {
+    padding: 1rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.btn {
+    border: 1px solid #ccc;
+    padding: 0.25rem 0.5rem;
+    background: #a09f9f;
+    cursor: pointer;
+    margin: 0.25rem;
+    border-radius: 4px;
+}
+
+.btn:hover {
+    background: #f0f0f0;
+}
+
+.form-section {
+    background: #f9f9f9;
+    padding: 1rem;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+}
+
+.form-section input {
+    margin: 0.5rem;
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.user-card {
+    border: 1px solid #ddd;
+    margin: 0.5rem 0;
+    padding: 1rem;
+    border-radius: 8px;
+    background: white;
+}
+
+.user-actions {
+    margin-top: 0.5rem;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.4);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+    border-radius: 8px;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: black;
+}
+
+.cancel {
+    background: #ccc !important;
+}
+
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}

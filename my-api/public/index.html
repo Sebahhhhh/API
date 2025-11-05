@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEP test API</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Gestione Utenti</h1>
+        
+        <!-- Form per aggiungere nuovo utente -->
+        <div class="form-section">
+            <h2>Aggiungi Nuovo Utente</h2>
+            <form id="addUserForm">
+                <input type="text" id="newUserName" placeholder="Nome" required>
+                <input type="number" id="newUserEmail" placeholder="Età" min="0" required>
+                <input type="text" id="newUserPhone" placeholder="Note" style="display:none;">
+                <button type="submit" class="btn">Aggiungi Utente</button>
+            </form>
+        </div>
+
+        <!-- Lista utenti -->
+        <div class="users-section">
+            <h2>Lista Utenti</h2>
+            <div id="usersList"></div>
+        </div>
+
+        <!-- Modal per dettagli utente -->
+        <div id="userModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Dettagli Utente</h2>
+                <div id="userDetails"></div>
+            </div>
+        </div>
+
+        <!-- Modal per modifica utente -->
+        <div id="editModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Modifica Utente</h2>
+                <form id="editUserForm">
+                    <input type="hidden" id="editUserId">
+                    <input type="text" id="editUserName" placeholder="Nome" required>
+                    <input type="number" id="editUserEmail" placeholder="Età" min="0" required>
+                    <input type="text" id="editUserPhone" placeholder="Telefono" style="display:none;">
+                    <button type="submit" class="btn">Salva Modifiche</button>
+                    <button type="button" class="btn cancel" onclick="closeEditModal()">Annulla</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,31 +1,14 @@
 [
   {
-    "name": "Marco Grena",
-    "age": 44
+    "name": "Pica",
+    "age": 17
   },
   {
-    "name": "Diego Bernini",
-    "age": 43
+    "name": "Gusmini",
+    "age": 18
   },
   {
-    "name": "Matusalemme",
-    "age": 1000
-  },
-  {
-    "name": "Super User",
-    "age": 0,
-    "role": "admin",
-    "data": {
-      "email": "super.user@domain.it",
-      "phone": "+391234567890"
-    }
-  },
-  {
-    "name": "hashmap",
-    "age": 432
-  },
-  {
-    "name": "testtest",
-    "age": 0
+    "name": "Bollettino",
+    "age": 19
   }
 ]
