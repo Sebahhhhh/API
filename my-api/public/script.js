@@ -1,150 +1,118 @@
-// Prova prima l'API locale, poi quella remota
+// lista degli endpoint da provare in ordine di priorità
 const API_ENDPOINTS = [
     '/api',
     'http://localhost:3000/api',
     'https://infamous-spooky-monster-jj9wrqgrpr7cq6w5-3000.app.github.dev/api'
 ];
 
-let API_BASE = API_ENDPOINTS[0]; // Inizia con il percorso relativo
+let API_BASE = API_ENDPOINTS[0];
 let users = [];
 let updateInterval;
 
-// Test connessione API
+// fetch con timeout per evitare richieste che si bloccano indefinitamente
+// serve per evitare che l'interfaccia rimanga bloccata in caso di problemi di rete
+// nel caso ti dice direttamente che non va 
+async function fetchWithTimeout(url, options = {}, timeout = 5000) {
+
+    // controllo per nel caso abortire la richiesta 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+    }
+}
+
+// prova ogni endpoint fino a trovarne uno funzionante
+// è importante perchè l'API potrebbe essere ospitata in posti diversi
 async function testApiConnection() {
     for (const endpoint of API_ENDPOINTS) {
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-            
-            const response = await fetch(`${endpoint}/users`, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    "Authorization": "Bearer 5IDtoken"
-                    
-                },
-                signal: controller.signal
+            const response = await fetchWithTimeout(`${endpoint}/users`, {
+                headers: { 'Accept': 'application/json', 'Authorization': 'Bearer 5IDtoken' }
             });
             
-            clearTimeout(timeoutId);
-            
             if (response.ok) {
+                // salva l'endpoint funzionante per le successive chiamate
                 API_BASE = endpoint;
-                console.log(`API connessa a: ${API_BASE}`);
                 return true;
             }
-        } catch (error) {
-            console.log(`Tentativo fallito per ${endpoint}:`, error.message);
-        }
+        } catch (error) {}
     }
     return false;
 }
 
-// Inizializzazione
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('Inizializzazione applicazione...');
-    
-    // Testa la connessione API
-    const apiConnected = await testApiConnection();
-    
-    if (!apiConnected) {
-        const usersList = document.getElementById('usersList');
-        if (usersList) {
-            usersList.innerHTML = '<p>Impossibile connettersi all\'API. Verificare che il server sia avviato.</p>';
-        }
+    // verifica connessione prima di procedere
+    // se non va mostra messaggio di errore
+    if (!await testApiConnection()) {
+        document.getElementById('usersList').innerHTML = '<p>Impossibile connettersi all\'API.</p>';
         return;
     }
     
     loadUsers();
     setupEventListeners();
-    
-    // Aggiornamento automatico ogni 2 secondi
+    // aggiorna la lista utenti ogni 2 secondi
+    // così i dati restano sempre aggiornati
     updateInterval = setInterval(loadUsers, 2000);
 });
 
 function setupEventListeners() {
-    // Form aggiunta utente
-    const addForm = document.getElementById('addUserForm');
-    if (addForm) {
-        addForm.addEventListener('submit', handleAddUser);
-    }
+    document.getElementById('addUserForm')?.addEventListener('submit', handleAddUser);
+    document.getElementById('editUserForm')?.addEventListener('submit', handleEditUser);
     
-    // Form modifica utente
-    const editForm = document.getElementById('editUserForm');
-    if (editForm) {
-        editForm.addEventListener('submit', handleEditUser);
-    }
-    
-    // Chiusura modal
-    document.querySelectorAll('.close').forEach(closeBtn => {
-        closeBtn.addEventListener('click', function() {
-            const modal = this.closest('.modal');
-            if (modal) {
-                modal.style.display = 'none';
-            }
-        });
+    // chiusura modal con pulsante X
+    document.querySelectorAll('.close').forEach(btn => {
+        btn.addEventListener('click', () => btn.closest('.modal').style.display = 'none');
     });
     
-    // Chiusura modal cliccando fuori
-    window.addEventListener('click', function(event) {
-        if (event.target.classList.contains('modal')) {
-            event.target.style.display = 'none';
-        }
+    // chiusura modal cliccando fuori
+    // alternativa pratica
+    window.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal')) e.target.style.display = 'none';
     });
 }
 
+// carica la lista utenti dall'API
+// aggiorna solo se i dati sono cambiati
 async function loadUsers() {
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        
-        const response = await fetch(`${API_BASE}/users`, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-            },
-            signal: controller.signal
+        const response = await fetchWithTimeout(`${API_BASE}/users`, {
+            headers: { 'Accept': 'application/json' }
         });
         
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) return;
         
         const newUsers = await response.json();
-        
-        // Aggiorna solo se ci sono cambiamenti
+
+        // aggiorna solo se i dati sono cambiati per evitare rendering inutili
         if (JSON.stringify(newUsers) !== JSON.stringify(users)) {
             users = newUsers;
             renderUsers();
         }
-    } catch (error) {
-        console.error('Errore nel caricamento utenti:', error);
-        const usersList = document.getElementById('usersList');
-        if (usersList) {
-            if (error.name === 'AbortError') {
-                usersList.innerHTML = '<p>Timeout nella connessione all\'API</p>';
-            } else {
-                usersList.innerHTML = `<p>Errore nel caricamento degli utenti: ${error.message}</p>`;
-            }
-        }
-    }
+    } catch (error) {}
 }
 
+// mostra la lista utenti nell'interfaccia
 function renderUsers() {
     const usersList = document.getElementById('usersList');
     if (!usersList) return;
     
-    if (!users || users.length === 0) {
+    if (!users?.length) {
         usersList.innerHTML = '<p>Nessun utente trovato</p>';
         return;
     }
     
+    // genera le card utente dinamicamente
     usersList.innerHTML = users.map(user => `
-        <div class="user-card" data-user-name="${user.name}">
+        <div class="user-card">
             <h3>${user.name || 'Nome non disponibile'}</h3>
-            <p>Età: ${user.age !== undefined ? user.age : 'Età non disponibile'}</p>
+            <p>Età: ${user.age ?? 'Età non disponibile'}</p>
             <div class="user-actions">
                 <button class="btn" onclick="showUserDetails('${user.name}')">Dettagli</button>
                 <button class="btn" onclick="editUser('${user.name}')">Modifica</button>
@@ -154,218 +122,120 @@ function renderUsers() {
     `).join('');
 }
 
+// mostra i dettagli di un utente in una modal
 async function showUserDetails(userName) {
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        
-        const response = await fetch(`${API_BASE}/users/${encodeURIComponent(userName)}`, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-            },
-            signal: controller.signal
+        // codifica il nome per gestire caratteri speciali nell'url
+        const response = await fetchWithTimeout(`${API_BASE}/users/${encodeURIComponent(userName)}`, {
+            headers: { 'Accept': 'application/json' }
         });
         
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) return;
         
         const user = await response.json();
-        
-        const userDetails = document.getElementById('userDetails');
-        const userModal = document.getElementById('userModal');
-        
-        if (userDetails && userModal) {
-            userDetails.innerHTML = `
-                <p><strong>Nome:</strong> ${user.name || 'Non specificato'}</p>
-                <p><strong>Età:</strong> ${user.age !== undefined ? user.age : 'Non specificato'}</p>
-            `;
-            
-            userModal.style.display = 'block';
-        }
-    } catch (error) {
-        console.error('Errore nel caricamento dettagli utente:', error);
-    }
+        document.getElementById('userDetails').innerHTML = `
+            <p><strong>Nome:</strong> ${user.name || 'Non specificato'}</p>
+            <p><strong>Età:</strong> ${user.age ?? 'Non specificato'}</p>
+        `;
+        document.getElementById('userModal').style.display = 'block';
+    } catch (error) {}
 }
 
+// apre la modal di modifica con i dati dell'utente
 function editUser(userName) {
+    // trova l'utente da modificare
     const user = users.find(u => u.name === userName);
-    if (!user) {
-        console.error('Utente non trovato');
-        return;
-    }
+    if (!user) return;
     
-    const editUserId = document.getElementById('editUserId');
-    const editUserName = document.getElementById('editUserName');
-    const editUserEmail = document.getElementById('editUserEmail');
-    const editUserPhone = document.getElementById('editUserPhone');
-    const editModal = document.getElementById('editModal');
-    
-    if (editUserId && editUserName && editUserEmail && editUserPhone && editModal) {
-        editUserId.value = user.name; // Usa il nome come identificatore
-        editUserName.value = user.name || '';
-        editUserEmail.value = user.age || ''; // Usa il campo email per l'età
-        editUserPhone.style.display = 'none'; // Nascondi il campo telefono
-        
-        editModal.style.display = 'block';
-    }
+    // popola il form di modifica con i dati attuali
+    document.getElementById('editUserId').value = user.name;
+    document.getElementById('editUserName').value = user.name || '';
+    document.getElementById('editUserEmail').value = user.age || '';
+    document.getElementById('editModal').style.display = 'block';
 }
 
+// gestisce l'aggiunta di un nuovo utente
 async function handleAddUser(event) {
     event.preventDefault();
     
-    const nameInput = document.getElementById('newUserName');
-    const emailInput = document.getElementById('newUserEmail'); // Usa per l'età
-    const phoneInput = document.getElementById('newUserPhone');
+    // prendi i valori dal form
+    const name = document.getElementById('newUserName').value.trim();
+    const age = parseInt(document.getElementById('newUserEmail').value) || 0;
     
-    if (!nameInput || !emailInput) return;
-    
-    const userData = {
-        name: nameInput.value.trim(),
-        age: parseInt(emailInput.value) || 0
-    };
-    
-    if (!userData.name) {
-        console.error('Nome è obbligatorio');
-        return;
-    }
-    
-    if (userData.age < 0) {
-        console.error('L\'età deve essere un numero positivo');
-        return;
-    }
+    if (!name) return;
     
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        
-        const response = await fetch(`${API_BASE}/users`, {
+        // timeout più lungo per operazioni di scrittura
+        // che potrebbero richiedere più tempo
+        const response = await fetchWithTimeout(`${API_BASE}/users`, {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
-                "Authorization": "Bearer 5IDtoken",
+                'Authorization': 'Bearer 5IDtoken',
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(userData),
-            signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
+            body: JSON.stringify({ name, age })
+        }, 10000);
         
         if (response.ok) {
-            // Reset form
-            const form = document.getElementById('addUserForm');
-            if (form) form.reset();
-            
-            // Ricarica la lista immediatamente
+            document.getElementById('addUserForm').reset();
             await loadUsers();
-            console.log('Utente aggiunto con successo!');
-        } else {
-            const errorData = await response.json().catch(() => ({}));
-            console.error(`Errore nell'aggiunta dell'utente: ${errorData.message || 'Errore sconosciuto'}`);
         }
-    } catch (error) {
-        console.error('Errore nell\'aggiunta utente:', error);
-    }
+    } catch (error) {}
 }
 
+// gestisce la modifica di un utente esistente
 async function handleEditUser(event) {
     event.preventDefault();
     
-    const userIdInput = document.getElementById('editUserId');
-    const nameInput = document.getElementById('editUserName');
-    const emailInput = document.getElementById('editUserEmail'); // Usa per l'età
+    // salva il nome originale per l'url della richiesta
+    const oldName = document.getElementById('editUserId').value;
+    const name = document.getElementById('editUserName').value.trim();
+    const age = parseInt(document.getElementById('editUserEmail').value) || 0;
     
-    if (!userIdInput || !nameInput || !emailInput) return;
-    
-    const oldName = userIdInput.value;
-    const userData = {
-        name: nameInput.value.trim(),
-        age: parseInt(emailInput.value) || 0
-    };
-    
-    if (!userData.name) {
-        console.error('Nome è obbligatorio');
-        return;
-    }
-    
-    if (userData.age < 0) {
-        console.error('L\'età deve essere un numero positivo');
-        return;
-    }
+    if (!name) return;
     
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        
-        const response = await fetch(`${API_BASE}/users/${encodeURIComponent(oldName)}`, {
+        const response = await fetchWithTimeout(`${API_BASE}/users/${encodeURIComponent(oldName)}`, {
             method: 'PUT',
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer 5IDtoken'
             },
-            body: JSON.stringify(userData),
-            signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
+            body: JSON.stringify({ name, age })
+        }, 10000);
         
         if (response.ok) {
             closeEditModal();
             await loadUsers();
-            console.log('Utente modificato con successo!');
-        } else {
-            const errorData = await response.json().catch(() => ({}));
-            console.error(`Errore nella modifica dell'utente: ${errorData.message || 'Errore sconosciuto'}`);
         }
-    } catch (error) {
-        console.error('Errore nella modifica utente:', error);
-    }
+    } catch (error) {}
 }
 
+// elimina un utente 
+// mostra un prompt di conferma prima di procedere
 async function deleteUser(userName) {
+    if (!confirm(`Sei sicuro di voler eliminare l'utente "${userName}"?`)) return;
+    
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        
-        const response = await fetch(`${API_BASE}/users/${encodeURIComponent(userName)}`, {
+        const response = await fetchWithTimeout(`${API_BASE}/users/${encodeURIComponent(userName)}`, {
             method: 'DELETE',
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer 5IDtoken'
-            },
-            signal: controller.signal
-        });
+            }
+        }, 10000);
         
-        clearTimeout(timeoutId);
-        
-        if (response.ok) {
-            await loadUsers();
-            console.log('Utente eliminato con successo!');
-        } else {
-            const errorData = await response.json().catch(() => ({}));
-            console.error(`Errore nell'eliminazione dell'utente: ${errorData.message || 'Errore sconosciuto'}`);
-        }
-    } catch (error) {
-        console.error('Errore nell\'eliminazione utente:', error);
-    }
+        if (response.ok) await loadUsers();
+    } catch (error) {}
 }
 
+// chiude la modal di modifica
 function closeEditModal() {
-    const editModal = document.getElementById('editModal');
-    if (editModal) {
-        editModal.style.display = 'none';
-    }
+    document.getElementById('editModal').style.display = 'none';
 }
 
-// Cleanup quando la pagina viene chiusa
-window.addEventListener('beforeunload', function() {
-    if (updateInterval) {
-        clearInterval(updateInterval);
-    }
-});
+// pulisce l'intervallo quando la pagina viene chiusa
+window.addEventListener('beforeunload', () => clearInterval(updateInterval));
